@@ -1,4 +1,4 @@
-package ejercicio.ejer_t5_7_7;
+package ejercicio.ejer_t5_7_2;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentHashMap;
