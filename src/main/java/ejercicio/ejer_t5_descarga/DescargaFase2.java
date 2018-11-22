@@ -23,7 +23,7 @@ public class DescargaFase2 {
 
 	private CountDownLatch finishedTasks;
 
-	private boolean aborted = false;
+	private volatile boolean aborted = false;
 
 	private String downloadURL(URL website) throws IOException {
 
@@ -60,12 +60,17 @@ public class DescargaFase2 {
 		long startTime = System.currentTimeMillis();
 
 		for (String url : urls) {
-			new Thread(() -> downloadAndProcessWeb(url)).start();
+			Runnable task = () -> downloadAndProcessWeb(url);
+			new Thread(task).start();
 		}
 
 		finishedTasks.await();
 
 		long totalTime = System.currentTimeMillis() - startTime;
+
+		if (aborted) {
+			System.out.println("Aborted by error");
+		}
 
 		printFinalReport(totalTime);
 
@@ -105,12 +110,12 @@ public class DescargaFase2 {
 
 			String webContent = downloadURL(new URL(url));
 
-			int chars = webContent.length();
-			totalChars.addAndGet(chars);
-
-			long time = System.currentTimeMillis() - startTime;
-
 			if (!aborted) {
+
+				int chars = webContent.length();
+				totalChars.addAndGet(chars);
+
+				long time = System.currentTimeMillis() - startTime;
 
 				synchronized (this) {
 					System.out.println("Downloaded web " + url);
