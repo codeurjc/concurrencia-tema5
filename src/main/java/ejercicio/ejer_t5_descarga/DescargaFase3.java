@@ -18,22 +18,25 @@ import java.util.concurrent.Executors;
 public class DescargaFase3 {
 
 	private static final boolean EXIT_ON_EXCEPTION = true;
-	
-	private String downloadURL(URL website) throws IOException {
+
+	private String downloadURL(URL website) throws IOException, InterruptedException {
 
 		URLConnection connection = website.openConnection();
-		BufferedReader in = new BufferedReader(
-				new InputStreamReader(connection.getInputStream()));
 
-		StringBuilder response = new StringBuilder();
-		String inputLine;
+		try(BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
 
-		while ((inputLine = in.readLine()) != null)
-			response.append(inputLine);
+			StringBuilder response = new StringBuilder();
+			String inputLine;
 
-		in.close();
+			while ((inputLine = in.readLine()) != null) {
+				if (Thread.interrupted()) {
+					throw new InterruptedException();
+				}
+				response.append(inputLine);
+			}
 
-		return response.toString();
+			return response.toString();
+		}
 	}
 
 	public List<String> loadURLs() throws IOException {
@@ -43,13 +46,12 @@ public class DescargaFase3 {
 	private void exec() {
 
 		ExecutorService executor = Executors.newFixedThreadPool(10);
-		CompletionService<DownloadedWeb> cService = new ExecutorCompletionService<>(
-				executor);
-		
+		CompletionService<DownloadedWeb> cService = new ExecutorCompletionService<>(executor);
+
 		List<DownloadedWeb> webs = new ArrayList<>();
 		long totalChars = 0;
-		
-		long startTime = System.currentTimeMillis();	
+
+		long startTime = System.currentTimeMillis();
 
 		try {
 
@@ -57,44 +59,41 @@ public class DescargaFase3 {
 			for (String url : urls) {
 				cService.submit(() -> downloadAndProcessWeb(url));
 			}
+			try {
+				for (int i = 0; i < urls.size(); i++) {
 
-			for(int i=0; i<urls.size(); i++){
-				try {
-					
 					DownloadedWeb dWeb = cService.take().get();
 					webs.add(dWeb);
-					
+
 					String webContent = dWeb.getWebContent();
-					if(webContent != null){
-						totalChars += dWeb.getWebContent().length();						
+					if (webContent != null) {
+						totalChars += dWeb.getWebContent().length();
 					} else {
-						if(EXIT_ON_EXCEPTION){
+						if (EXIT_ON_EXCEPTION) {
 							break;
 						}
 					}
-					
-				} catch (InterruptedException e) {
-				} catch (ExecutionException e) {
-					System.out.println("Exception processing web: "+e.getMessage());
 				}
+
+			} catch (InterruptedException e) {
+			} catch (ExecutionException e) {
+				System.out.println("Exception processing web: " + e.getMessage());
 			}
 
 			executor.shutdownNow();
-			
+
 			long totalTime = System.currentTimeMillis() - startTime;
-			
+
 			printFinalReport(totalChars, totalTime, webs);
-			
+
 			System.exit(0);
 
 		} catch (IOException e) {
-			System.out
-					.println("Error reading webs.txt file: " + e.getMessage());
+			System.out.println("Error reading webs.txt file: " + e.getMessage());
 		}
 	}
 
-	private void printFinalReport(long totalChars, long totalTime,
-			List<DownloadedWeb> webs) {
+	private void printFinalReport(long totalChars, long totalTime, List<DownloadedWeb> webs) {
 
 		System.out.println();
 		System.out.println("Final report");
@@ -109,8 +108,7 @@ public class DescargaFase3 {
 			if (webContent != null) {
 				System.out.println("Chars: " + web.getWebContent().length());
 			} else {
-				System.out.println(
-						"Error: " + web.getException().getClass().getName());
+				System.out.println("Error: " + web.getException().getClass().getName());
 			}
 			System.out.println();
 		}
@@ -135,8 +133,7 @@ public class DescargaFase3 {
 			synchronized (this) {
 				System.out.println("Downloaded web " + url);
 				System.out.println("   Characters: " + chars);
-				System.out.println(
-						"   First chars: " + webContent.substring(0, 100));
+				System.out.println("   First chars: " + webContent.substring(0, 100));
 				System.out.println("   Time: " + time + "ms");
 				System.out.println();
 			}
@@ -146,8 +143,7 @@ public class DescargaFase3 {
 		} catch (Exception e) {
 
 			synchronized (this) {
-				System.out.println("Error downloading web " + url + ": "
-						+ e.getClass().getName());
+				System.out.println("Error downloading web " + url + ": " + e.getClass().getName());
 			}
 
 			return new DownloadedWeb(url, e);
