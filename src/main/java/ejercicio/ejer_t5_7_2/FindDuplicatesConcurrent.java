@@ -58,7 +58,7 @@ public class FindDuplicatesConcurrent {
 		try {
 			executor.awaitTermination(50, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
+			executor.shutdownNow();
 		}
 	}
 
